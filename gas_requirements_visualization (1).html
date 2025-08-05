@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAS実装・デバッグ・運用プロセス図解</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Mermaid.js の読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'base',
+                securityLevel: 'loose',
+                fontFamily: '"Kaisei Decol", sans-serif',
+                themeVariables: {
+                    primaryColor: '#4CAF50',
+                    primaryTextColor: '#fff',
+                    primaryBorderColor: '#9575CD',
+                    lineColor: '#009688',
+                    secondaryColor: '#FFC107',
+                    tertiaryColor: '#E91E63'
+                },
+                flowchart: {
+                    cornerRadius: 15,
+                    curve: 'cardinal',
+                    htmlLabels: true
+                }
+            });
+        });
+    </script>
+    
+    <style>
+        :root {
+            --main-color: #4CAF50;
+            --accent-1: #9575CD;
+            --accent-2: #FFC107;
+            --accent-3: #009688;
+            --accent-4: #E91E63;
+            --bg-color: #FAFAFA;
+            --text-dark: #333;
+            --text-light: #666;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kaisei Decol', sans-serif;
+            background: linear-gradient(135deg, var(--bg-color) 0%, #f0f8f0 100%);
+            color: var(--text-dark);
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background: linear-gradient(135deg, var(--main-color), var(--accent-3));
+            color: white;
+            padding: 2rem;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section {
+            background: white;
+            margin: 2rem 0;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            border-left: 5px solid var(--main-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--main-color);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .icon-live {
+            background: linear-gradient(45deg, var(--accent-4), var(--accent-2));
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .icon-live::after {
+            content: '🎯';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+
+        .icon-debug {
+            background: linear-gradient(45deg, var(--accent-1), var(--accent-3));
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .icon-debug::after {
+            content: '🔧';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+
+        .icon-seminar {
+            background: linear-gradient(45deg, var(--accent-2), var(--main-color));
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .icon-seminar::after {
+            content: '👥';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .problem-card {
+            background: linear-gradient(135deg, #fff5f5, #ffeaa7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-4);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .problem-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .problem-card::before {
+            content: '⚠️';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .problem-card h3 {
+            color: var(--accent-4);
+            font-size: 1.3rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .solution-card {
+            background: linear-gradient(135deg, #f0fff4, #e8f5e8);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--main-color);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .solution-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .solution-card::before {
+            content: '✅';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .solution-card h3 {
+            color: var(--main-color);
+            font-size: 1.3rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .workflow-container {
+            margin: 2rem 0;
+            padding: 1rem;
+            border-radius: 12px;
+            background: white;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, transparent 0%, var(--accent-2) 50%, transparent 100%);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .live-session {
+            background: linear-gradient(135deg, var(--accent-1), #d1c4e9);
+            color: white;
+        }
+
+        .live-session .section-title {
+            color: white;
+        }
+
+        .chat-bubble {
+            background: rgba(255,255,255,0.9);
+            color: var(--text-dark);
+            padding: 1rem 1.5rem;
+            border-radius: 20px;
+            margin: 1rem 0;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .chat-bubble::before {
+            content: '💬';
+            position: absolute;
+            left: -0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .tech-item {
+            background: var(--accent-3);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .conclusion {
+            background: linear-gradient(135deg, var(--accent-2), #fff3c4);
+            color: var(--text-dark);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .problem-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tech-stack {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🚀 GAS実装・デバッグ・運用プロセス</h1>
+            <p class="subtitle">リアルタイム開発セミナーでの実装体験記録</p>
+        </header>
+
+        <section class="section live-session">
+            <h2 class="section-title">
+                <span class="icon icon-live"></span>
+                🎯 実装プロセスの実際
+            </h2>
+            
+            <p><strong>結論：</strong> <span class="highlight">要件整理→実装→デバッグ→テスト→デプロイ</span>の反復的な開発プロセスで、リアルタイムに問題解決</p>
+            
+            <p><strong>背景：</strong> 大手ショッピングモールでの公園イベントや四国初の愛フェスなど、実際の現場ニーズに応えるためのシステム開発セミナーでの実体験</p>
+
+            <div class="workflow-container">
+                <div class="mermaid">
+                    flowchart TD
+                        A[📝 要件を整理しましょう] --> B[🔤 E列: 16桁ランダム識別子]
+                        B --> C[🔗 F列: URL生成機能]
+                        C --> D[📱 G列: QRコード生成]
+                        D --> E[📧 メール送信機能]
+                        E --> F[⚠️ 問題発生<br/>シートネームが違う]
+                        F --> G[🔧 デバッグ作業]
+                        G --> H[✅ テスト実行]
+                        H --> I{動作確認}
+                        I -->|成功| J[🌐 デプロイ実行]
+                        I -->|失敗| K[再修正]
+                        K --> G
+                        J --> L[🎯 エンドポイント設定]
+                        L --> M[📊 運用開始]
+                        
+                        style A fill:#4CAF50,stroke:#333,color:#fff
+                        style F fill:#E91E63,stroke:#333,color:#fff
+                        style J fill:#FFC107,stroke:#333,color:#000
+                        style M fill:#9575CD,stroke:#333,color:#fff
+                </div>
+            </div>
+
+            <div class="chat-bubble">
+                <strong>参加者の声：</strong> 「E列の識別子が出ないのって問題だ」「16桁でいいんでそこの識別子をちゃんとやっぱり...」
+            </div>
+
+            <p><strong>具体例：</strong> セミナー中に「これできなかった」「シートネームが違うな」といった実際の問題が発生し、その場でリアルタイム修正を実施</p>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">
+                <span class="icon icon-debug"></span>
+                🔧 発生した問題と解決策
+            </h2>
+            
+            <p><strong>結論：</strong> <span class="highlight">問題の早期発見と迅速な対応</span>により、システムの完成度を高めることができた</p>
+            
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <h3>E列識別子の未生成</h3>
+                    <p>16桁のランダム識別子が正しく生成されない問題が発生</p>
+                    <p><strong>原因：</strong> 関数の設定ミス</p>
+                </div>
+
+                <div class="solution-card">
+                    <h3>識別子生成の修正</h3>
+                    <p>16桁の英数字ランダム文字列生成ロジックを再実装</p>
+                    <p><strong>結果：</strong> 正常に識別子が付与されるように</p>
+                </div>
+
+                <div class="problem-card">
+                    <h3>シートネームの不一致</h3>
+                    <p>スプレッドシートの参照名が実際のシート名と異なる</p>
+                    <p><strong>影響：</strong> データの読み書きができない状態</p>
+                </div>
+
+                <div class="solution-card">
+                    <h3>シート名の統一</h3>
+                    <p>コード内のシート参照名を実際の名前に合わせて修正</p>
+                    <p><strong>結果：</strong> データ操作が正常に動作</p>
+                </div>
+
+                <div class="problem-card">
+                    <h3>エンドポイント設定</h3>
+                    <p>外部からアクセス可能なURLの設定で混乱</p>
+                    <p><strong>課題：</strong> セキュリティとアクセス性の両立</p>
+                </div>
+
+                <div class="solution-card">
+                    <h3>Webアプリデプロイ</h3>
+                    <p>適切な権限設定でWebアプリとして公開</p>
+                    <p><strong>結果：</strong> 安全にアクセス追跡が可能に</p>
+                </div>
+            </div>
+
+            <p><strong>背景：</strong> 実際のセミナー環境では、参加者の画面共有中に問題が発生し、「準備だけしておきましょうか、送信はちょっとしないように」といった配慮も必要</p>
+            
+            <p><strong>例え話：</strong> まるで「デジタル医師」のように、システムの症状を診断し、的確な治療（修正）を施すプロセス</p>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">
+                <span class="icon icon-seminar"></span>
+                👥 セミナー運営での気づき
+            </h2>
+            
+            <p><strong>結論：</strong> <span class="highlight">参加者とのリアルタイム対話型開発</span>により、より実用的なシステムが完成</p>
+            
+            <h3>🎓 技術スタックと活用ツール</h3>
+            <div class="tech-stack">
+                <span class="tech-item">Google Apps Script</span>
+                <span class="tech-item">フェロー（AI）活用</span>
+                <span class="tech-item">エージェント機能</span>
+                <span class="tech-item">GitHub連携</span>
+                <span class="tech-item">QRコード生成</span>
+                <span class="tech-item">Webhook対応</span>
+            </div>
+
+            <h3>🗣️ セミナー中の実際の会話</h3>
+            
+            <div class="chat-bubble">
+                「非エンジニア絶対使ったらいいなと思ってる関数があって」
+            </div>
+            
+            <div class="chat-bubble">
+                「フェローを活用したGASの書き方が第一なんでした」
+            </div>
+            
+            <div class="chat-bubble">
+                「エージェント機能というんでしょうか？何か履歴があるんですか？」
+            </div>
+
+            <div class="workflow-container">
+                <div class="mermaid">
+                    graph LR
+                        A[👨‍🏫 講師説明] --> B[💻 リアルタイム実装]
+                        B --> C[❓ 参加者質問]
+                        C --> D[🔧 その場で修正]
+                        D --> E[✅ 動作確認]
+                        E --> F[📚 ノート共有]
+                        F --> G[🎯 次のステップ]
+                        
+                        style A fill:#4CAF50,stroke:#333,color:#fff
+                        style D fill:#E91E63,stroke:#333,color:#fff
+                        style F fill:#FFC107,stroke:#333,color:#000
+                </div>
+            </div>
+
+            <p><strong>背景：</strong> 「皆さんの個人情報も見て」という配慮から、画面の回答が出てきちゃう可能性への対処など、実際のセミナー運営での細かな気遣いが必要</p>
+            
+            <p><strong>具体例：</strong> 「桂太郎さんの解説のペース」や「なおきさんやる気満々です」など、参加者一人ひとりの理解度に合わせた個別対応</p>
+            
+            <p><strong>例え話：</strong> まるで「デジタル料理教室」のように、レシピ（コード）を見ながら、みんなで一緒に調理（実装）し、失敗したら即座に修正していく協働プロセス</p>
+        </section>
+
+        <section class="section conclusion">
+            <h2 class="section-title">
+                📊 実装完了後の成果
+            </h2>
+            
+            <p><strong>結論：</strong> このリアルタイム開発セミナーにより、<span class="highlight">理論と実践を融合した実用的なGASシステム</span>が完成し、参加者全員が実際に動作するシステムを体験できました。</p>
+            
+            <p>「これでOK、なおきさんやる気満々です」「うわっすごい、システム設定でしょ」といった参加者の反応からも分かるように、技術の魅力と実用性を同時に伝える貴重な学習体験となりました。</p>
+            
+            <p>今後は「GitHubとか投げられたりとか、ほうがなんか便利な時があるんですよ」というように、さらなる開発効率化も期待できる基盤が整いました。</p>
+        </section>
+    </div>
+</body>
+</html>
